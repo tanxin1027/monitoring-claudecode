@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.monitor.mapper.TomcatMetricMapper">
+
+    <resultMap id="BaseResultMap" type="com.monitor.entity.TomcatMetric">
+        <id column="id" property="id"/>
+        <result column="instance_id" property="instanceId"/>
+        <result column="jvm_heap_used" property="jvmHeapUsed"/>
+        <result column="jvm_heap_max" property="jvmHeapMax"/>
+        <result column="jvm_non_heap_used" property="jvmNonHeapUsed"/>
+        <result column="gc_count" property="gcCount"/>
+        <result column="gc_time" property="gcTime"/>
+        <result column="thread_count" property="threadCount"/>
+        <result column="thread_busy" property="threadBusy"/>
+        <result column="request_count" property="requestCount"/>
+        <result column="error_count" property="errorCount"/>
+        <result column="bytes_sent" property="bytesSent"/>
+        <result column="bytes_received" property="bytesReceived"/>
+        <result column="max_time" property="maxTime"/>
+        <result column="uptime" property="uptime"/>
+        <result column="session_count" property="sessionCount"/>
+        <result column="session_expired" property="sessionExpired"/>
+        <result column="collect_time" property="collectTime"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <!-- 批量插入 -->
+    <insert id="batchInsert" parameterType="java.util.List">
+        INSERT INTO tomcat_metric_202604 (
+            instance_id, jvm_heap_used, jvm_heap_max, jvm_non_heap_used,
+            gc_count, gc_time, thread_count, thread_busy,
+            request_count, error_count, bytes_sent, bytes_received,
+            max_time, uptime, session_count, session_expired,
+            collect_time, create_time
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.instanceId}, #{item.jvmHeapUsed}, #{item.jvmHeapMax}, #{item.jvmNonHeapUsed},
+                #{item.gcCount}, #{item.gcTime}, #{item.threadCount}, #{item.threadBusy},
+                #{item.requestCount}, #{item.errorCount}, #{item.bytesSent}, #{item.bytesReceived},
+                #{item.maxTime}, #{item.uptime}, #{item.sessionCount}, #{item.sessionExpired},
+                #{item.collectTime}, NOW()
+            )
+        </foreach>
+    </insert>
+
+</mapper>

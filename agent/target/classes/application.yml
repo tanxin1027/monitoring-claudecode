@@ -1,0 +1,60 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: hospital-monitor-agent
+
+# 云端服务端配置
+cloud:
+  server:
+    # 云端数据上报地址
+    url: http://localhost:8080
+    # 认证 token (由云端分配)
+    token: agt_962d39baf20a490297ecff8d35295ac2
+    # 数据上报间隔 (秒)
+    report-interval: 30
+
+# MySQL 监控配置
+mysql:
+  enabled: true
+  instances:
+    - instance-code: mysql_001
+      url: jdbc:mysql://localhost:3306/mysql?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      username: root
+      password: 123456
+# Tomcat 监控配置
+tomcat:
+  enabled: true
+  instances:
+    - instance-code: tomcat_001
+      instance-name: 本地 Tomcat 实例
+      host: localhost
+      jmx-port: 9999
+
+# 监控配置
+monitor:
+  # 是否启用
+  enabled: true
+  # 采集器配置
+  collector:
+    # CPU 采集
+    cpu:
+      enabled: true
+    # 内存采集
+    memory:
+      enabled: true
+    # 磁盘采集
+    disk:
+      enabled: true
+    # 网络采集
+    network:
+      enabled: true
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.monitor.agent: DEBUG
+  file:
+    name: /var/log/hospital-monitor/agent.log
