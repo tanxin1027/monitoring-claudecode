@@ -48,6 +48,16 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <el-pagination
+        v-model:current-page="pagination.pageNum"
+        v-model:page-size="pagination.pageSize"
+        :total="pagination.total"
+        layout="total, sizes, prev, pager, next"
+        @size-change="loadData"
+        @current-change="loadData"
+        style="margin-top: 20px; justify-content: flex-end"
+      />
     </el-card>
 
     <!-- 新增/编辑对话框 -->
@@ -108,11 +118,17 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getAlarmRuleList, addAlarmRule, updateAlarmRule, deleteAlarmRule, toggleAlarmRule } from '@/api/alarm'
 
 const dialogVisible = ref(false)
 const dialogTitle = ref('新增规则')
 const tableData = ref([])
 const formRef = ref(null)
+const pagination = reactive({
+  pageNum: 1,
+  pageSize: 10,
+  total: 0
+})
 
 const formData = reactive({
   id: null,
@@ -132,13 +148,22 @@ const rules = {
   thresholdValue: [{ required: true, message: '请输入阈值', trigger: 'blur' }]
 }
 
-const loadData = () => {
-  // 模拟数据
-  tableData.value = [
-    { id: 1, ruleName: 'CPU 使用率告警', metricType: 1, metricKey: 'cpuUsage', operator: '>', thresholdValue: '90', severity: 2, status: 1 },
-    { id: 2, ruleName: '内存使用率告警', metricType: 1, metricKey: 'memoryUsage', operator: '>', thresholdValue: '85', severity: 2, status: 1 },
-    { id: 3, ruleName: 'MySQL 连接数告警', metricType: 2, metricKey: 'connections', operator: '>', thresholdValue: '500', severity: 3, status: 1 }
-  ]
+const loadData = async () => {
+  try {
+    const res = await getAlarmRuleList({
+      pageNum: pagination.pageNum,
+      pageSize: pagination.pageSize,
+      status: null,
+      keyword: null
+    })
+    if (res.code === 200 && res.data) {
+      tableData.value = res.data.records || []
+      pagination.total = res.data.total || 0
+    }
+  } catch (error) {
+    console.error('Load alarm rule list error:', error)
+    ElMessage.error('加载规则列表失败')
+  }
 }
 
 const getMetricTypeText = (type) => {
@@ -175,19 +200,40 @@ const handleEdit = (row) => {
 
 const handleDelete = (row) => {
   ElMessageBox.confirm('确认删除该规则吗？', '提示', { type: 'warning' })
-    .then(() => {
-      ElMessage.success('删除成功')
-      loadData()
+    .then(async () => {
+      try {
+        const res = await deleteAlarmRule(row.id)
+        if (res.code === 200) {
+          ElMessage.success('删除成功')
+          loadData()
+        } else {
+          ElMessage.error(res.msg || '删除失败')
+        }
+      } catch (error) {
+        console.error('Delete alarm rule error:', error)
+        ElMessage.error('删除失败')
+      }
     })
     .catch(() => {})
 }
 
 const handleSubmit = () => {
-  formRef.value.validate((valid) => {
+  formRef.value.validate(async (valid) => {
     if (valid) {
-      ElMessage.success(formData.id ? '修改成功' : '新增成功')
-      dialogVisible.value = false
-      loadData()
+      try {
+        const api = formData.id ? updateAlarmRule : addAlarmRule
+        const res = await api(formData)
+        if (res.code === 200) {
+          ElMessage.success(formData.id ? '修改成功' : '新增成功')
+          dialogVisible.value = false
+          loadData()
+        } else {
+          ElMessage.error(res.msg || (formData.id ? '修改失败' : '新增失败'))
+        }
+      } catch (error) {
+        console.error('Submit alarm rule error:', error)
+        ElMessage.error(formData.id ? '修改失败' : '新增失败')
+      }
     }
   })
 }

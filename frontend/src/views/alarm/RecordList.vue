@@ -37,7 +37,7 @@
         </el-table-column>
         <el-table-column prop="createTime" label="告警时间" width="180" />
         <el-table-column prop="handleTime" label="处理时间" width="180" />
-        <el-table-column label="操作" width="120" fixed="right">
+        <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <el-button
               v-if="row.status === 0"
@@ -47,6 +47,15 @@
               @click="handleProcess(row)"
             >
               处理
+            </el-button>
+            <el-button
+              v-if="row.status === 0"
+              type="info"
+              size="small"
+              text
+              @click="handleIgnore(row)"
+            >
+              忽略
             </el-button>
           </template>
         </el-table-column>
@@ -85,7 +94,8 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getAlarmRecordList, processAlarmRecord, ignoreAlarmRecord, countUnprocessedAlarms } from '@/api/alarm'
 
 const tableData = ref([])
 const processDialogVisible = ref(false)
@@ -105,15 +115,23 @@ const processForm = reactive({
   handleRemark: ''
 })
 
-const loadData = () => {
-  // 模拟数据
-  tableData.value = [
-    { id: 1, alarmContent: '服务器 CPU 使用率超过 90%', severity: 3, status: 0, createTime: '2026-04-09 10:30:00', handleTime: null },
-    { id: 2, alarmContent: 'MySQL 连接数超过阈值 500', severity: 2, status: 0, createTime: '2026-04-09 09:15:00', handleTime: null },
-    { id: 3, alarmContent: 'Tomcat JVM 内存使用率过高', severity: 2, status: 1, createTime: '2026-04-09 08:00:00', handleTime: '2026-04-09 08:30:00' },
-    { id: 4, alarmContent: '服务器磁盘使用率超过 85%', severity: 2, status: 1, createTime: '2026-04-08 23:00:00', handleTime: '2026-04-09 09:00:00' }
-  ]
-  pagination.total = tableData.value.length
+const loadData = async () => {
+  try {
+    const res = await getAlarmRecordList({
+      pageNum: pagination.pageNum,
+      pageSize: pagination.pageSize,
+      status: searchForm.status,
+      severity: null,
+      keyword: null
+    })
+    if (res.code === 200 && res.data) {
+      tableData.value = res.data.records || []
+      pagination.total = res.data.total || 0
+    }
+  } catch (error) {
+    console.error('Load alarm record list error:', error)
+    ElMessage.error('加载记录列表失败')
+  }
 }
 
 const getSeverityText = (severity) => {
@@ -132,10 +150,35 @@ const handleProcess = (row) => {
   processDialogVisible.value = true
 }
 
-const handleSubmitProcess = () => {
-  ElMessage.success('处理成功')
-  processDialogVisible.value = false
-  loadData()
+const handleSubmitProcess = async () => {
+  try {
+    const res = await processAlarmRecord(currentAlarm.value.id, 'admin', processForm.handleRemark)
+    if (res.code === 200) {
+      ElMessage.success('处理成功')
+      processDialogVisible.value = false
+      loadData()
+    } else {
+      ElMessage.error(res.msg || '处理失败')
+    }
+  } catch (error) {
+    console.error('Process alarm record error:', error)
+    ElMessage.error('处理失败')
+  }
+}
+
+const handleIgnore = async (row) => {
+  try {
+    const res = await ignoreAlarmRecord(row.id, 'admin')
+    if (res.code === 200) {
+      ElMessage.success('已忽略')
+      loadData()
+    } else {
+      ElMessage.error(res.msg || '忽略失败')
+    }
+  } catch (error) {
+    console.error('Ignore alarm record error:', error)
+    ElMessage.error('忽略失败')
+  }
 }
 
 onMounted(() => {
