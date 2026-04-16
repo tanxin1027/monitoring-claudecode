@@ -30,6 +30,18 @@ const routes = [
         meta: { title: '服务器管理' }
       },
       {
+        path: 'server/mysql',
+        name: 'ServerMysql',
+        component: () => import('@/views/server/MysqlInstance.vue'),
+        meta: { title: 'MySQL 实例管理' }
+      },
+      {
+        path: 'server/tomcat',
+        name: 'ServerTomcat',
+        component: () => import('@/views/server/TomcatInstance.vue'),
+        meta: { title: 'Tomcat 实例管理' }
+      },
+      {
         path: 'monitor/server',
         name: 'MonitorServer',
         component: () => import('@/views/monitor/ServerMonitor.vue'),

@@ -36,6 +36,8 @@
               <span>服务器管理</span>
             </template>
             <el-menu-item index="/server"><el-icon><List /></el-icon>服务器列表</el-menu-item>
+            <el-menu-item index="/server/mysql"><el-icon><Connection /></el-icon>MySQL 实例</el-menu-item>
+            <el-menu-item index="/server/tomcat"><el-icon><Cpu /></el-icon>Tomcat 实例</el-menu-item>
           </el-sub-menu>
 
           <el-sub-menu index="monitor">
