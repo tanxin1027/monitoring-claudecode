@@ -44,4 +44,36 @@
         ORDER BY collect_time ASC
     </select>
 
+    <!-- 获取 CPU 使用率 Top10 -->
+    <select id="getCpuTop" resultType="com.monitor.controller.DashboardController$ServerRanking">
+        SELECT
+            sm.server_id AS serverId,
+            si.server_name AS serverName,
+            sm.cpu_usage AS value,
+            UNIX_TIMESTAMP(sm.collect_time) AS collectTime
+        FROM server_metric_202604 sm
+        INNER JOIN server_info si ON sm.server_id = si.id
+        WHERE sm.collect_time = (
+            SELECT MAX(collect_time) FROM server_metric_202604 WHERE server_id = sm.server_id
+        )
+        ORDER BY sm.cpu_usage DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 获取内存使用率 Top10 -->
+    <select id="getMemoryTop" resultType="com.monitor.controller.DashboardController$ServerRanking">
+        SELECT
+            sm.server_id AS serverId,
+            si.server_name AS serverName,
+            sm.memory_usage AS value,
+            UNIX_TIMESTAMP(sm.collect_time) AS collectTime
+        FROM server_metric_202604 sm
+        INNER JOIN server_info si ON sm.server_id = si.id
+        WHERE sm.collect_time = (
+            SELECT MAX(collect_time) FROM server_metric_202604 WHERE server_id = sm.server_id
+        )
+        ORDER BY sm.memory_usage DESC
+        LIMIT #{limit}
+    </select>
+
 </mapper>

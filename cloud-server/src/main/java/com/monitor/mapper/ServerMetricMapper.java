@@ -1,6 +1,7 @@
 package com.monitor.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.monitor.controller.DashboardController.ServerRanking;
 import com.monitor.entity.ServerMetric;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -27,4 +28,14 @@ public interface ServerMetricMapper extends BaseMapper<ServerMetric> {
         @Param("startTime") LocalDateTime startTime,
         @Param("endTime") LocalDateTime endTime
     );
+
+    /**
+     * 获取 CPU 使用率 Top10
+     */
+    List<ServerRanking> getCpuTop(@Param("limit") Integer limit);
+
+    /**
+     * 获取内存使用率 Top10
+     */
+    List<ServerRanking> getMemoryTop(@Param("limit") Integer limit);
 }

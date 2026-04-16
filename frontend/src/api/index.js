@@ -75,6 +75,15 @@ export function getMemoryTop(limit = 10) {
   })
 }
 
+// 获取最新告警记录
+export function getRecentAlarms(limit = 10) {
+  return request({
+    url: '/dashboard/alarm/recent',
+    method: 'get',
+    params: { limit }
+  })
+}
+
 // ==================== 医院管理 ====================
 
 // 医院列表

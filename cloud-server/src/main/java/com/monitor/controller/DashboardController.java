@@ -1,6 +1,17 @@
 package com.monitor.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.monitor.dto.Result;
+import com.monitor.entity.AlarmRecord;
+import com.monitor.entity.MysqlInstance;
+import com.monitor.entity.ServerInfo;
+import com.monitor.entity.ServerMetric;
+import com.monitor.entity.TomcatInstance;
+import com.monitor.mapper.AlarmRecordMapper;
+import com.monitor.mapper.MysqlInstanceMapper;
+import com.monitor.mapper.ServerInfoMapper;
+import com.monitor.mapper.ServerMetricMapper;
+import com.monitor.mapper.TomcatInstanceMapper;
 import com.monitor.service.ServerService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -10,9 +21,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 数据可视化展示接口
@@ -24,6 +38,11 @@ import java.util.Map;
 public class DashboardController {
 
     private final ServerService serverService;
+    private final ServerInfoMapper serverInfoMapper;
+    private final ServerMetricMapper serverMetricMapper;
+    private final MysqlInstanceMapper mysqlInstanceMapper;
+    private final TomcatInstanceMapper tomcatInstanceMapper;
+    private final AlarmRecordMapper alarmRecordMapper;
 
     /**
      * 获取仪表盘概览数据
@@ -39,9 +58,28 @@ public class DashboardController {
             overview.setServerOnline(serverStats.getOnline());
             overview.setServerOffline(serverStats.getOffline());
 
-            // TODO: 添加 MySQL、Tomcat 统计
-            overview.setMysqlTotal(0);
-            overview.setTomcatTotal(0);
+            // MySQL 实例统计
+            LambdaQueryWrapper<MysqlInstance> mysqlWrapper = new LambdaQueryWrapper<>();
+            if (hospitalId != null) {
+                mysqlWrapper.eq(MysqlInstance::getHospitalId, hospitalId);
+            }
+            long mysqlTotal = mysqlInstanceMapper.selectCount(mysqlWrapper);
+            mysqlWrapper.eq(MysqlInstance::getStatus, 1);
+            long mysqlOnline = mysqlInstanceMapper.selectCount(mysqlWrapper);
+
+            // Tomcat 实例统计
+            LambdaQueryWrapper<TomcatInstance> tomcatWrapper = new LambdaQueryWrapper<>();
+            if (hospitalId != null) {
+                tomcatWrapper.eq(TomcatInstance::getHospitalId, hospitalId);
+            }
+            long tomcatTotal = tomcatInstanceMapper.selectCount(tomcatWrapper);
+            tomcatWrapper.eq(TomcatInstance::getStatus, 1);
+            long tomcatOnline = tomcatInstanceMapper.selectCount(tomcatWrapper);
+
+            overview.setMysqlTotal((int) mysqlTotal);
+            overview.setMysqlOnline((int) mysqlOnline);
+            overview.setTomcatTotal((int) tomcatTotal);
+            overview.setTomcatOnline((int) tomcatOnline);
 
             return Result.success(overview);
 
@@ -73,11 +111,34 @@ public class DashboardController {
     @GetMapping("/alarm-stats")
     public Result<AlarmStats> getAlarmStats(@RequestParam(required = false) Long hospitalId) {
         try {
-            // TODO: 实现告警统计查询
+            // 未处理告警数
+            LambdaQueryWrapper<AlarmRecord> unhandleWrapper = new LambdaQueryWrapper<>();
+            unhandleWrapper.eq(AlarmRecord::getStatus, 0);
+            if (hospitalId != null) {
+                // 需要根据实例 ID 关联查询医院 ID，这里简化处理
+            }
+            long unhandleCount = alarmRecordMapper.selectCount(unhandleWrapper);
+
+            // 今日告警数
+            LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+            LambdaQueryWrapper<AlarmRecord> todayWrapper = new LambdaQueryWrapper<>();
+            todayWrapper.ge(AlarmRecord::getAlarmTime, todayStart);
+            long todayCount = alarmRecordMapper.selectCount(todayWrapper);
+
+            // 各等级告警数
+            int[] severityLevels = new int[3];
+            for (int i = 1; i <= 3; i++) {
+                final int severity = i;
+                LambdaQueryWrapper<AlarmRecord> severityWrapper = new LambdaQueryWrapper<>();
+                severityWrapper.eq(AlarmRecord::getSeverity, severity);
+                severityWrapper.ge(AlarmRecord::getAlarmTime, todayStart);
+                severityLevels[i - 1] = (int) alarmRecordMapper.selectCount(severityWrapper).longValue();
+            }
+
             AlarmStats stats = new AlarmStats();
-            stats.setTodayCount(0);
-            stats.setUnhandleCount(0);
-            stats.setSeverityLevels(new int[]{0, 0, 0});
+            stats.setUnhandleCount((int) unhandleCount);
+            stats.setTodayCount((int) todayCount);
+            stats.setSeverityLevels(severityLevels);
 
             return Result.success(stats);
 
@@ -88,13 +149,14 @@ public class DashboardController {
     }
 
     /**
-     * 获取实时性能排行（CPU  Top10）
+     * 获取实时性能排行（CPU Top10）
      */
     @GetMapping("/top/cpu")
     public Result<List<ServerRanking>> getCpuTop(@RequestParam(defaultValue = "10") Integer limit) {
         try {
-            // TODO: 实现 CPU 排行查询
-            List<ServerRanking> rankings = new ArrayList<>();
+            // 查询最新的 CPU 使用率排行
+            // 先获取每个服务器最新的监控记录，然后按 CPU 使用率排序
+            List<ServerRanking> rankings = serverMetricMapper.getCpuTop(limit);
             return Result.success(rankings);
 
         } catch (Exception e) {
@@ -109,12 +171,30 @@ public class DashboardController {
     @GetMapping("/top/memory")
     public Result<List<ServerRanking>> getMemoryTop(@RequestParam(defaultValue = "10") Integer limit) {
         try {
-            // TODO: 实现内存排行查询
-            List<ServerRanking> rankings = new ArrayList<>();
+            // 查询最新的内存使用率排行
+            List<ServerRanking> rankings = serverMetricMapper.getMemoryTop(limit);
             return Result.success(rankings);
 
         } catch (Exception e) {
             log.error("Get memory top error", e);
+            return Result.error(500, "查询失败");
+        }
+    }
+
+    /**
+     * 获取最新告警记录
+     */
+    @GetMapping("/alarm/recent")
+    public Result<List<AlarmRecord>> getRecentAlarms(@RequestParam(defaultValue = "10") Integer limit) {
+        try {
+            LambdaQueryWrapper<AlarmRecord> wrapper = new LambdaQueryWrapper<>();
+            wrapper.orderByDesc(AlarmRecord::getAlarmTime);
+            wrapper.last("LIMIT " + limit);
+            List<AlarmRecord> records = alarmRecordMapper.selectList(wrapper);
+            return Result.success(records);
+
+        } catch (Exception e) {
+            log.error("Get recent alarms error", e);
             return Result.error(500, "查询失败");
         }
     }
@@ -128,7 +208,9 @@ public class DashboardController {
         private Integer serverOnline;
         private Integer serverOffline;
         private Integer mysqlTotal;
+        private Integer mysqlOnline;
         private Integer tomcatTotal;
+        private Integer tomcatOnline;
     }
 
     /**
@@ -160,6 +242,6 @@ public class DashboardController {
         private Long serverId;
         private String serverName;
         private Double value;            // CPU 或内存使用率
-        private Long collectTime;        // 采集时间
+        private Long collectTime;        // 采集时间（秒级时间戳）
     }
 }

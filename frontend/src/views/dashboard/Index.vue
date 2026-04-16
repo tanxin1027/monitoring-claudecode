@@ -231,7 +231,7 @@
 import { ref, reactive, onMounted, nextTick, computed, onUnmounted } from 'vue'
 import * as echarts from 'echarts'
 import dayjs from 'dayjs'
-import { getDashboardOverview, getAlarmStats, getCpuTop, getMemoryTop, getAlarmRecordList } from '@/api'
+import { getDashboardOverview, getAlarmStats, getCpuTop, getMemoryTop, getAlarmRecordList, getRecentAlarms } from '@/api'
 import { ElMessage } from 'element-plus'
 
 const overview = ref({})
@@ -259,9 +259,12 @@ const onlineRate = computed(() => {
 const loadOverview = async () => {
   try {
     const res = await getDashboardOverview()
-    overview.value = res.data || { serverTotal: 0, serverOnline: 0, serverOffline: 0 }
+    if (res.code === 200 && res.data) {
+      overview.value = res.data
+    }
   } catch (error) {
-    overview.value = { serverTotal: 12, serverOnline: 10, serverOffline: 2 }
+    console.error('Load overview error:', error)
+    ElMessage.error('加载概览数据失败')
   }
 }
 
@@ -269,35 +272,55 @@ const loadOverview = async () => {
 const loadAlarmStats = async () => {
   try {
     const res = await getAlarmStats()
-    alarmStats.value = res.data || { unhandleCount: 0, todayCount: 0 }
+    if (res.code === 200 && res.data) {
+      alarmStats.value = res.data
+    }
   } catch (error) {
-    alarmStats.value = { unhandleCount: 5, todayCount: 12 }
+    console.error('Load alarm stats error:', error)
   }
 }
 
 // 加载 MySQL 统计
 const loadMysqlStats = async () => {
-  mysqlStats.value = { total: 6, online: 5, slowQueries: 23 }
+  try {
+    // 从概览数据中获取
+    if (overview.value.mysqlTotal !== undefined) {
+      mysqlStats.value = {
+        total: overview.value.mysqlTotal || 0,
+        online: overview.value.mysqlOnline || 0,
+        slowQueries: 0 // 需要额外的查询来获取慢查询数
+      }
+    }
+  } catch (error) {
+    console.error('Load mysql stats error:', error)
+  }
 }
 
 // 加载 Tomcat 统计
 const loadTomcatStats = async () => {
-  tomcatStats.value = { total: 8, online: 7, gcCount: 156 }
+  try {
+    // 从概览数据中获取
+    if (overview.value.tomcatTotal !== undefined) {
+      tomcatStats.value = {
+        total: overview.value.tomcatTotal || 0,
+        online: overview.value.tomcatOnline || 0,
+        gcCount: 0 // 需要额外的查询来获取 GC 次数
+      }
+    }
+  } catch (error) {
+    console.error('Load tomcat stats error:', error)
+  }
 }
 
 // 加载告警记录
 const loadAlarmRecords = async () => {
   try {
     const res = await getAlarmRecordList({ pageNum: 1, pageSize: 10 })
-    alarmRecords.value = res.data?.records || []
+    if (res.code === 200 && res.data) {
+      alarmRecords.value = res.data.records || []
+    }
   } catch (error) {
-    alarmRecords.value = [
-      { alarmContent: '服务器 CPU 使用率超过 90%', severity: 3, status: 0, createTime: dayjs().format('YYYY-MM-DD HH:mm:ss') },
-      { alarmContent: 'MySQL 连接数超过阈值 500', severity: 2, status: 0, createTime: dayjs().subtract(1, 'hour').format('YYYY-MM-DD HH:mm:ss') },
-      { alarmContent: 'Tomcat JVM 内存使用率过高', severity: 2, status: 1, createTime: dayjs().subtract(2, 'hour').format('YYYY-MM-DD HH:mm:ss') },
-      { alarmContent: '服务器磁盘使用率超过 85%', severity: 2, status: 1, createTime: dayjs().subtract(1, 'day').format('YYYY-MM-DD HH:mm:ss') },
-      { alarmContent: '服务器内存使用率超过 90%', severity: 3, status: 0, createTime: dayjs().subtract(1, 'day').format('YYYY-MM-DD HH:mm:ss') }
-    ]
+    console.error('Load alarm records error:', error)
   }
 }
 
@@ -321,8 +344,6 @@ const refreshAll = async () => {
   await Promise.all([
     loadOverview(),
     loadAlarmStats(),
-    loadMysqlStats(),
-    loadTomcatStats(),
     loadAlarmRecords(),
     initCharts()
   ])
@@ -334,13 +355,19 @@ const refreshAll = async () => {
 const initCharts = async () => {
   await nextTick()
 
-  const cpuData = [
-    { serverName: 'Web 服务器 01', value: 85 },
-    { serverName: 'Web 服务器 02', value: 72 },
-    { serverName: 'DB 服务器 01', value: 68 },
-    { serverName: 'DB 服务器 02', value: 54 },
-    { serverName: '应用服务器 01', value: 42 }
-  ]
+  // 加载 CPU 排行数据
+  let cpuData = []
+  try {
+    const res = await getCpuTop(10)
+    if (res.code === 200 && res.data) {
+      cpuData = res.data.map(item => ({
+        serverName: item.serverName,
+        value: item.value ? item.value.toFixed(2) : 0
+      }))
+    }
+  } catch (error) {
+    console.error('Load CPU top error:', error)
+  }
 
   if (cpuChartRef.value) {
     const cpuChart = echarts.init(cpuChartRef.value)
@@ -387,13 +414,19 @@ const initCharts = async () => {
     })
   }
 
-  const memoryData = [
-    { serverName: 'Web 服务器 01', value: 78 },
-    { serverName: 'Web 服务器 02', value: 65 },
-    { serverName: 'DB 服务器 01', value: 58 },
-    { serverName: 'DB 服务器 02', value: 45 },
-    { serverName: '应用服务器 01', value: 38 }
-  ]
+  // 加载内存排行数据
+  let memoryData = []
+  try {
+    const res = await getMemoryTop(10)
+    if (res.code === 200 && res.data) {
+      memoryData = res.data.map(item => ({
+        serverName: item.serverName,
+        value: item.value ? item.value.toFixed(2) : 0
+      }))
+    }
+  } catch (error) {
+    console.error('Load memory top error:', error)
+  }
 
   if (memoryChartRef.value) {
     const memoryChart = echarts.init(memoryChartRef.value)
@@ -472,8 +505,6 @@ const stopAutoRefresh = () => {
 onMounted(() => {
   loadOverview()
   loadAlarmStats()
-  loadMysqlStats()
-  loadTomcatStats()
   loadAlarmRecords()
   initCharts()
   startAutoRefresh()

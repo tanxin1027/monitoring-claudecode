@@ -139,8 +139,17 @@ public class AlarmCheckService {
             recordDTO.setMetricType(getMetricTypeCode(rule.getMetricType()));
             recordDTO.setInstanceId(instanceId);
             recordDTO.setInstanceName(instanceName);
+
+            // 将阈值字符串转换为数字用于格式化
+            double threshold;
+            try {
+                threshold = Double.parseDouble(rule.getThresholdValue());
+            } catch (NumberFormatException e) {
+                threshold = 0;
+            }
+
             recordDTO.setAlarmContent(String.format("告警规则 [%s] 被触发：%s %s %.2f，当前值：%.2f",
-                    rule.getRuleName(), metricKey, rule.getOperator(), rule.getThresholdValue(), value.doubleValue()));
+                    rule.getRuleName(), metricKey, rule.getOperator(), threshold, value.doubleValue()));
             recordDTO.setCurrentValue(String.valueOf(value));
             recordDTO.setSeverity(rule.getSeverity());
             recordDTO.setStatus(0); // 未处理

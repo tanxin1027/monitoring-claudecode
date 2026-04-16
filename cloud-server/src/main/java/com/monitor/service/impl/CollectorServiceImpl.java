@@ -7,6 +7,7 @@ import com.monitor.dto.TomcatMetricDTO;
 import com.monitor.entity.*;
 import com.monitor.mapper.*;
 import com.monitor.service.CollectorService;
+import com.monitor.service.AlarmCheckService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -38,6 +39,7 @@ public class CollectorServiceImpl implements CollectorService {
     private final MysqlMetricMapper mysqlMetricMapper;
     private final TomcatMetricMapper tomcatMetricMapper;
     private final StringRedisTemplate redisTemplate;
+    private final AlarmCheckService alarmCheckService;
 
     private static final DateTimeFormatter MONTH_FORMAT = DateTimeFormatter.ofPattern("yyyyMM");
 
@@ -229,6 +231,34 @@ public class CollectorServiceImpl implements CollectorService {
         // 这里可以根据月份切换到对应的表
         // 为简化处理，这里直接插入当前表
         serverMetricMapper.insert(metric);
+
+        // 告警检查
+        try {
+            alarmCheckService.checkServerMetric(serverId, metricDTO.getServerCode(), "cpuUsage", metricDTO.getCpuUsage());
+            alarmCheckService.checkServerMetric(serverId, metricDTO.getServerCode(), "memoryUsage", metricDTO.getMemoryUsage());
+            alarmCheckService.checkServerMetric(serverId, metricDTO.getServerCode(), "diskUsage", calculateDiskUsage(metricDTO.getDisks()));
+        } catch (Exception e) {
+            log.error("Alarm check error for server metric", e);
+        }
+    }
+
+    /**
+     * 计算磁盘使用率
+     */
+    private BigDecimal calculateDiskUsage(List<ServerMetricDTO.DiskInfo> disks) {
+        if (disks == null || disks.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        long total = 0;
+        long used = 0;
+        for (ServerMetricDTO.DiskInfo disk : disks) {
+            total += disk.getTotal();
+            used += disk.getUsed();
+        }
+        if (total == 0) {
+            return BigDecimal.ZERO;
+        }
+        return new BigDecimal(used * 100.0 / total).setScale(2, BigDecimal.ROUND_HALF_UP);
     }
 
     /**
@@ -285,6 +315,14 @@ public class CollectorServiceImpl implements CollectorService {
         metric.setCreateTime(LocalDateTime.now());
 
         mysqlMetricMapper.insert(metric);
+
+        // 告警检查
+        try {
+            alarmCheckService.checkMysqlMetric(instanceId, metricDTO.getInstanceCode(), "connections", metricDTO.getConnectionsCurrent());
+            alarmCheckService.checkMysqlMetric(instanceId, metricDTO.getInstanceCode(), "cpuUsage", metricDTO.getQps());
+        } catch (Exception e) {
+            log.error("Alarm check error for MySQL metric", e);
+        }
     }
 
     /**
@@ -331,5 +369,20 @@ public class CollectorServiceImpl implements CollectorService {
 
         tomcatMetricMapper.insert(metric);
         log.info("Tomcat metric saved successfully, id={}", metric.getId());
+
+        // 告警检查
+        try {
+            // 计算 JVM 内存使用率
+            BigDecimal jvmHeapUsage = BigDecimal.ZERO;
+            if (metricDTO.getJvmHeapMax() != null && metricDTO.getJvmHeapMax() > 0) {
+                jvmHeapUsage = new BigDecimal(metricDTO.getJvmHeapUsed())
+                    .divide(new BigDecimal(metricDTO.getJvmHeapMax()), 4, BigDecimal.ROUND_HALF_UP)
+                    .multiply(new BigDecimal("100"));
+            }
+            alarmCheckService.checkTomcatMetric(instanceId, metricDTO.getInstanceCode(), "jvmHeapUsage", jvmHeapUsage);
+            alarmCheckService.checkTomcatMetric(instanceId, metricDTO.getInstanceCode(), "threadCount", metricDTO.getThreadCount());
+        } catch (Exception e) {
+            log.error("Alarm check error for Tomcat metric", e);
+        }
     }
 }
