@@ -261,6 +261,17 @@ const loadOverview = async () => {
     const res = await getDashboardOverview()
     if (res.code === 200 && res.data) {
       overview.value = res.data
+      // 同时设置 MySQL 和 Tomcat 统计
+      mysqlStats.value = {
+        total: res.data.mysqlTotal || 0,
+        online: res.data.mysqlOnline || 0,
+        slowQueries: 0
+      }
+      tomcatStats.value = {
+        total: res.data.tomcatTotal || 0,
+        online: res.data.tomcatOnline || 0,
+        gcCount: 0
+      }
     }
   } catch (error) {
     console.error('Load overview error:', error)
@@ -277,38 +288,6 @@ const loadAlarmStats = async () => {
     }
   } catch (error) {
     console.error('Load alarm stats error:', error)
-  }
-}
-
-// 加载 MySQL 统计
-const loadMysqlStats = async () => {
-  try {
-    // 从概览数据中获取
-    if (overview.value.mysqlTotal !== undefined) {
-      mysqlStats.value = {
-        total: overview.value.mysqlTotal || 0,
-        online: overview.value.mysqlOnline || 0,
-        slowQueries: 0 // 需要额外的查询来获取慢查询数
-      }
-    }
-  } catch (error) {
-    console.error('Load mysql stats error:', error)
-  }
-}
-
-// 加载 Tomcat 统计
-const loadTomcatStats = async () => {
-  try {
-    // 从概览数据中获取
-    if (overview.value.tomcatTotal !== undefined) {
-      tomcatStats.value = {
-        total: overview.value.tomcatTotal || 0,
-        online: overview.value.tomcatOnline || 0,
-        gcCount: 0 // 需要额外的查询来获取 GC 次数
-      }
-    }
-  } catch (error) {
-    console.error('Load tomcat stats error:', error)
   }
 }
 
