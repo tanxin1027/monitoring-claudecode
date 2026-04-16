@@ -44,35 +44,41 @@
         ORDER BY collect_time ASC
     </select>
 
-    <!-- 获取 CPU 使用率 Top10 -->
+    <!-- 获取 CPU 使用率 Top10 - 优化版本 -->
     <select id="getCpuTop" resultType="com.monitor.controller.DashboardController$ServerRanking">
         SELECT
-            sm.server_id AS serverId,
+            m.server_id AS serverId,
             si.server_name AS serverName,
-            sm.cpu_usage AS value,
-            UNIX_TIMESTAMP(sm.collect_time) AS collectTime
-        FROM server_metric_202604 sm
-        INNER JOIN server_info si ON sm.server_id = si.id
-        WHERE sm.collect_time = (
-            SELECT MAX(collect_time) FROM server_metric_202604 WHERE server_id = sm.server_id
-        )
-        ORDER BY sm.cpu_usage DESC
+            m.cpu_usage AS value,
+            UNIX_TIMESTAMP(m.collect_time) AS collectTime
+        FROM (
+            SELECT server_id, MAX(collect_time) AS max_time
+            FROM server_metric_202604
+            WHERE collect_time &gt;= DATE_SUB(NOW(), INTERVAL 1 HOUR)
+            GROUP BY server_id
+        ) t
+        INNER JOIN server_metric_202604 m ON t.server_id = m.server_id AND t.max_time = m.collect_time
+        INNER JOIN server_info si ON m.server_id = si.id
+        ORDER BY m.cpu_usage DESC
         LIMIT #{limit}
     </select>
 
-    <!-- 获取内存使用率 Top10 -->
+    <!-- 获取内存使用率 Top10 - 优化版本 -->
     <select id="getMemoryTop" resultType="com.monitor.controller.DashboardController$ServerRanking">
         SELECT
-            sm.server_id AS serverId,
+            m.server_id AS serverId,
             si.server_name AS serverName,
-            sm.memory_usage AS value,
-            UNIX_TIMESTAMP(sm.collect_time) AS collectTime
-        FROM server_metric_202604 sm
-        INNER JOIN server_info si ON sm.server_id = si.id
-        WHERE sm.collect_time = (
-            SELECT MAX(collect_time) FROM server_metric_202604 WHERE server_id = sm.server_id
-        )
-        ORDER BY sm.memory_usage DESC
+            m.memory_usage AS value,
+            UNIX_TIMESTAMP(m.collect_time) AS collectTime
+        FROM (
+            SELECT server_id, MAX(collect_time) AS max_time
+            FROM server_metric_202604
+            WHERE collect_time &gt;= DATE_SUB(NOW(), INTERVAL 1 HOUR)
+            GROUP BY server_id
+        ) t
+        INNER JOIN server_metric_202604 m ON t.server_id = m.server_id AND t.max_time = m.collect_time
+        INNER JOIN server_info si ON m.server_id = si.id
+        ORDER BY m.memory_usage DESC
         LIMIT #{limit}
     </select>
 
