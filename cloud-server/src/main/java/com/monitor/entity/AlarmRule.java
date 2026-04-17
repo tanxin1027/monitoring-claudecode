@@ -49,6 +49,18 @@ public class AlarmRule implements Serializable {
     private String thresholdValue;
 
     /**
+     * 连续超标次数阈值，达到此次数后发送通知
+     */
+    @TableField("continuous_threshold")
+    private Integer continuousThreshold;
+
+    /**
+     * 通知方式 1-短信 2-微信
+     */
+    @TableField("notify_method")
+    private Integer notifyMethod;
+
+    /**
      * 严重程度 1-提示 2-警告 3-严重
      */
     @TableField("severity")

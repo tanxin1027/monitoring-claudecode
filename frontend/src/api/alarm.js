@@ -116,3 +116,20 @@ export function countUnprocessedAlarms() {
     method: 'get'
   })
 }
+
+// 分页查询告警分组列表（连续告警）
+export function getAlarmGroups(params) {
+  return request({
+    url: '/alarm/record/groups',
+    method: 'get',
+    params
+  })
+}
+
+// 根据分组标识查询告警记录列表
+export function getAlarmRecordsByGroupKey(groupKey) {
+  return request({
+    url: `/alarm/record/group/${encodeURIComponent(groupKey)}`,
+    method: 'get'
+  })
+}

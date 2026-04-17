@@ -23,6 +23,14 @@
         <el-table-column prop="metricKey" label="指标" width="150" />
         <el-table-column prop="operator" label="操作符" width="80" />
         <el-table-column prop="thresholdValue" label="阈值" width="100" />
+        <el-table-column prop="continuousThreshold" label="连续次数" width="100" />
+        <el-table-column prop="notifyMethod" label="通知方式" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.notifyMethod === 1 ? 'warning' : 'success'" size="small">
+              {{ row.notifyMethod === 1 ? '短信' : '微信' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="severity" label="等级" width="80">
           <template #default="{ row }">
             <el-tag :type="getSeverityType(row.severity)" size="small">
@@ -96,6 +104,15 @@
         <el-form-item label="阈值" prop="thresholdValue">
           <el-input v-model="formData.thresholdValue" placeholder="如：90" />
         </el-form-item>
+        <el-form-item label="连续次数" prop="continuousThreshold">
+          <el-input-number v-model="formData.continuousThreshold" :min="1" :max="10" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="通知方式" prop="notifyMethod">
+          <el-radio-group v-model="formData.notifyMethod">
+            <el-radio :label="1">短信</el-radio>
+            <el-radio :label="2">微信</el-radio>
+          </el-radio-group>
+        </el-form-item>
         <el-form-item label="等级" prop="severity">
           <el-select v-model="formData.severity" placeholder="请选择" style="width: 100%">
             <el-option label="提示" :value="1" />
@@ -137,6 +154,8 @@ const formData = reactive({
   metricKey: '',
   operator: '>',
   thresholdValue: '',
+  continuousThreshold: 3,
+  notifyMethod: 2,
   severity: 2,
   status: 1
 })
@@ -188,7 +207,7 @@ const getSeverityType = (severity) => {
 
 const handleAdd = () => {
   dialogTitle.value = '新增规则'
-  Object.assign(formData, { id: null, ruleName: '', metricType: 1, metricKey: '', operator: '>', thresholdValue: '', severity: 2, status: 1 })
+  Object.assign(formData, { id: null, ruleName: '', metricType: 1, metricKey: '', operator: '>', thresholdValue: '', continuousThreshold: 3, notifyMethod: 2, severity: 2, status: 1 })
   dialogVisible.value = true
 }
 

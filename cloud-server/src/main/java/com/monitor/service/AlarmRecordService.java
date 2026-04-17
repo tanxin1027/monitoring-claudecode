@@ -44,4 +44,27 @@ public interface AlarmRecordService {
      * 统计未处理告警数
      */
     int countUnprocessed();
+
+    /**
+     * 根据分组标识查询最新的告警记录
+     *
+     * @param groupKey 分组标识
+     * @return 最新的告警记录
+     */
+    com.monitor.entity.AlarmRecord findLatestByGroupKey(String groupKey);
+
+    /**
+     * 按分组统计告警记录（用于前端分组展示）
+     *
+     * @return 分组告警统计列表
+     */
+    java.util.List<com.monitor.dto.AlarmGroupDTO> getAlarmGroups(Integer pageNum, Integer pageSize, Integer status);
+
+    /**
+     * 根据分组标识查询告警记录列表
+     *
+     * @param groupKey 分组标识
+     * @return 告警记录列表
+     */
+    java.util.List<com.monitor.dto.AlarmRecordDTO> getRecordsByGroupKey(String groupKey);
 }

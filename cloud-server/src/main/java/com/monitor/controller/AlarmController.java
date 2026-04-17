@@ -1,6 +1,7 @@
 package com.monitor.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.monitor.dto.AlarmGroupDTO;
 import com.monitor.dto.AlarmRecordDTO;
 import com.monitor.dto.AlarmRuleDTO;
 import com.monitor.dto.Result;
@@ -10,7 +11,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 告警管理接口
@@ -239,6 +242,52 @@ public class AlarmController {
             return Result.success(count);
         } catch (Exception e) {
             log.error("Count unprocessed alarms error", e);
+            return Result.error(500, "查询失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 分页查询告警分组列表（用于连续告警展示）
+     */
+    @GetMapping("/record/groups")
+    public Result<Map<String, Object>> listAlarmGroups(
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "10") Integer pageSize,
+            @RequestParam(required = false) Integer status) {
+
+        try {
+            // 先获取所有分组以计算总数
+            List<AlarmGroupDTO> allGroups = alarmRecordService.getAlarmGroups(1, 1000, status);
+            int total = allGroups.size();
+
+            // 获取分页数据
+            List<AlarmGroupDTO> groups = alarmRecordService.getAlarmGroups(pageNum, pageSize, status);
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("records", groups);
+            result.put("total", total);
+            result.put("current", pageNum);
+            result.put("size", pageSize);
+
+            return Result.success(result);
+        } catch (Exception e) {
+            log.error("Query alarm groups error", e);
+            return Result.error(500, "查询失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 根据分组标识查询告警记录列表（展开详情）
+     */
+    @GetMapping("/record/group/{groupKey}")
+    public Result<List<AlarmRecordDTO>> getRecordsByGroupKey(@PathVariable String groupKey) {
+        try {
+            // 这里可以通过 groupKey 查询该分组下的所有记录
+            // 由于 getAlarmGroups 已经返回了 records，这里可以作为补充
+            List<AlarmRecordDTO> records = alarmRecordService.getRecordsByGroupKey(groupKey);
+            return Result.success(records);
+        } catch (Exception e) {
+            log.error("Query records by group key error", e);
             return Result.error(500, "查询失败：" + e.getMessage());
         }
     }

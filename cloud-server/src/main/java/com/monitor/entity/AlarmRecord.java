@@ -61,6 +61,18 @@ public class AlarmRecord implements Serializable {
     private Integer severity;
 
     /**
+     * 当前连续告警次数
+     */
+    @TableField("continuous_count")
+    private Integer continuousCount;
+
+    /**
+     * 连续告警分组标识
+     */
+    @TableField("group_key")
+    private String groupKey;
+
+    /**
      * 状态 0-未处理 1-已处理 2-已忽略
      */
     @TableField("status")
